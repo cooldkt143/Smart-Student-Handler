@@ -79,25 +79,9 @@ Smart Student Handler aims to **simplify academic life** by merging automation, 
 
 ## 🛠 Tech Stack (Suggested)
 
-- **Frontend**: React.js + Tailwind CSS  
+- **Frontend**: typescript + Tailwind CSS  
 - **Backend**: Node.js / Express  
 - **Database**: MongoDB / PostgreSQL  
 - **AI Services**: OpenAI API / LangChain  
 - **Hosting**: Vercel / AWS / Firebase  
 
----
-
-## 📦 Installation
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/smart-student-handler.git
-
-# Navigate to folder
-cd smart-student-handler
-
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
