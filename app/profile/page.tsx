@@ -18,6 +18,7 @@ import {
   Award, Camera, Edit3, Save, X, Trash2, Plus, User, Mail, Phone, MapPin, Calendar,
   BookOpen, BarChart3, Bell, Settings, Shield
 } from "lucide-react"
+import Loading from "./loading"
 
 
 export default function ProfilePage() {
@@ -88,7 +89,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (!userData) return <div className="p-6">Loading profile...</div>
+  if (!userData) return <Loading />
 
   // ✅ Fix: type the accumulator and item so TS doesn't complain in CI
   const calculateOverallProgress = () => {

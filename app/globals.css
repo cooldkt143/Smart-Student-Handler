@@ -282,3 +282,20 @@ body {
     max-width: 100%;
   }
 }
+
+@keyframes coin-roll {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(180deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+
+.animate-coin-roll {
+  animation: coin-roll 2s linear infinite;
+  transform-style: preserve-3d;
+}
