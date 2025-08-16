@@ -90,9 +90,13 @@ export default function ProfilePage() {
 
   if (!userData) return <div className="p-6">Loading profile...</div>
 
+  // ✅ Fix: type the accumulator and item so TS doesn't complain in CI
   const calculateOverallProgress = () => {
     if (!userData || !userData.subjects || userData.subjects.length === 0) return 0;
-    const totalProgress = userData.subjects.reduce((sum, subject) => sum + subject.progress, 0);
+    const totalProgress = userData.subjects.reduce(
+      (sum: number, subject: { progress: number }) => sum + Number(subject?.progress ?? 0),
+      0
+    );
     return Math.round(totalProgress / userData.subjects.length);
   };
 
@@ -260,7 +264,13 @@ export default function ProfilePage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold gradient-text-light dark:gradient-text-dark">
-                      {userData.subjects.reduce((sum, subject) => sum + subject.credits, 0)}
+                      {
+                        // ✅ Fix: type the reduce accumulator/items
+                        userData.subjects.reduce(
+                          (sum: number, subject: { credits: number }) => sum + Number(subject?.credits ?? 0),
+                          0
+                        )
+                      }
                     </div>
                     <p className="text-sm text-gray-500">credits completed</p>
                   </CardContent>
@@ -277,7 +287,7 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {userData.subjects.map((subject, index) => (
+                    {userData.subjects.map((subject: any, index: number) => (
                       <div key={index} className="p-4 border rounded-lg">
                         <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
                           <div className="flex items-center space-x-3">
@@ -332,7 +342,7 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {userData.subjects.map((subject, index) => (
+                    {userData.subjects.map((subject: any, index: number) => (
                       <div key={index} className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="text-sm md:text-xl font-medium">{subject.name}</h3>
