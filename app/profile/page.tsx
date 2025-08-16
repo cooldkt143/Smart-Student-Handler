@@ -1,69 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { TopNavbar } from "@/components/top-navbar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BarChart3 } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { Switch } from "@/components/ui/switch"
 import {
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  BookOpen,
-  Award,
-  Settings,
-  Bell,
-  Shield,
-  Camera,
-  Edit3,
-  Save,
-  X,
+  Award, Camera, Edit3, Save, X, Trash2, Plus, User, Mail, Phone, MapPin, Calendar,
+  BookOpen, BarChart3, Bell, Settings, Shield
 } from "lucide-react"
 
-// Mock user data
-const mockUserData = {
-  name: "John Doe",
-  email: "john.doe@student.edu",
-  phone: "+1 (555) 123-4567",
-  address: "123 University Ave, College Town, CT 12345",
-  dateOfBirth: "1998-05-15",
-  studentId: "STU2024001",
-  major: "Computer Science",
-  year: "Senior",
-  gpa: 3.7,
-  avatar: "/placeholder.svg?height=128&width=128&text=JD",
-  bio: "Passionate computer science student with interests in AI and machine learning. Always eager to learn new technologies and apply them to solve real-world problems.",
-  joinDate: "2021-09-01",
-  achievements: [
-    { title: "Dean's List", date: "Fall 2023", description: "Academic excellence recognition" },
-    { title: "Hackathon Winner", date: "Spring 2023", description: "First place in university hackathon" },
-    { title: "Research Assistant", date: "2023-Present", description: "AI Research Lab" },
-  ],
-  subjects: [
-    { name: "Mathematics", grade: "A", credits: 4, progress: 95 },
-    { name: "Physics", grade: "A-", credits: 4, progress: 88 },
-    { name: "Chemistry", grade: "B+", credits: 3, progress: 82 },
-    { name: "History", grade: "A", credits: 3, progress: 92 },
-    { name: "English", grade: "A-", credits: 3, progress: 87 },
-  ],
-}
 
 export default function ProfilePage() {
-  const [userData, setUserData] = useState(mockUserData)
+  const [userData, setUserData] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [editedData, setEditedData] = useState(mockUserData)
+  const [editedData, setEditedData] = useState<any>(null)
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -73,9 +33,21 @@ export default function ProfilePage() {
     attendance: true,
   })
 
-  const handleSave = () => {
+  useEffect(() => {
+    fetch("/api/profile")
+      .then(res => res.json())
+      .then(data => { setUserData(data); setEditedData(data) })
+      .catch(err => console.error("Error loading profile:", err))
+  }, [])
+
+  const handleSave = async () => {
     setUserData(editedData)
     setIsEditing(false)
+    await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editedData),
+    })
   }
 
   const handleCancel = () => {
@@ -83,31 +55,53 @@ export default function ProfilePage() {
     setIsEditing(false)
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setEditedData((prev) => ({ ...prev, [field]: value }))
+  const handleInputChange = (field: string, value: any) => {
+    setEditedData((prev: any) => ({ ...prev, [field]: value }))
   }
 
-  const calculateOverallProgress = () => {
-    const totalProgress = userData.subjects.reduce((sum, subject) => sum + subject.progress, 0)
-    return Math.round(totalProgress / userData.subjects.length)
+  const handleAchievementChange = (index: number, field: string, value: string) => {
+    const updated = [...editedData.achievements]
+    updated[index][field] = value
+    setEditedData((prev: any) => ({ ...prev, achievements: updated }))
   }
+
+  const addAchievement = () => {
+    setEditedData((prev: any) => ({
+      ...prev,
+      achievements: [...prev.achievements, { title: "", date: "", description: "" }]
+    }))
+  }
+
+  const removeAchievement = (index: number) => {
+    const updated = editedData.achievements.filter((_: any, i: number) => i !== index)
+    setEditedData((prev: any) => ({ ...prev, achievements: updated }))
+  }
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      const reader = new FileReader()
+      reader.onload = () => {
+        setEditedData((prev: any) => ({ ...prev, avatar: reader.result }))
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  if (!userData) return <div className="p-6">Loading profile...</div>
+
+  const calculateOverallProgress = () => {
+    if (!userData || !userData.subjects || userData.subjects.length === 0) return 0;
+    const totalProgress = userData.subjects.reduce((sum, subject) => sum + subject.progress, 0);
+    return Math.round(totalProgress / userData.subjects.length);
+  };
 
   return (
     <SidebarProvider>
-      <div className="hidden md:block">
-        <AppSidebar />
-      </div>
+      <div className="hidden md:block"><AppSidebar /></div>
       <SidebarInset>
         <TopNavbar />
-
-        <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6 mobile-safe-area">
-          <div className="space-y-2">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Profile</h1>
-            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-              Manage your account settings and preferences
-            </p>
-          </div>
-
+        <div className="flex-1 space-y-6 p-6">
           <Tabs defaultValue="profile" className="space-y-6">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger className="text-xs md:text-sm" value="profile">Profile</TabsTrigger>
@@ -117,209 +111,121 @@ export default function ProfilePage() {
               <TabsTrigger className="text-xs md:text-sm" value="privacy">Privacy</TabsTrigger>
             </TabsList>
 
+            {/* ================= PROFILE TAB ================= */}
             <TabsContent value="profile" className="space-y-6">
               {/* Profile Header */}
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
-                    <div className="relative">
-                      <Avatar className="h-24 w-24 md:h-32 md:w-32 ring-4 ring-green-400 dark:ring-blue-400">
-                        <AvatarImage src={userData.avatar || "/placeholder.svg"} alt={userData.name} />
-                        <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 dark:from-blue-400 dark:to-blue-600 text-white text-xl md:text-2xl">
-                          {userData.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Button
-                        size="sm"
-                        className="absolute -bottom-2 -right-2 rounded-full h-8 w-8 p-0"
-                        variant="secondary"
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="flex-1 text-center md:text-left space-y-2">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                        <div>
-                          <h2 className="text-xl md:text-2xl font-bold gradient-text-light dark:gradient-text-dark">
-                            {userData.name}
-                          </h2>
-                          <p className="text-gray-600 dark:text-gray-400">
-                            {userData.major} • {userData.year}
-                          </p>
-                        </div>
-                        <div className="flex justify-center md:justify-end space-x-2 mt-2 md:mt-0">
-                          {!isEditing ? (
-                            <Button onClick={() => setIsEditing(true)} variant="outline" size="sm">
-                              <Edit3 className="h-4 w-4 mr-2" />
-                              Edit Profile
-                            </Button>
-                          ) : (
-                            <div className="flex space-x-2">
-                              <Button onClick={handleSave} size="sm">
-                                <Save className="h-4 w-4 mr-2" />
-                                Save
-                              </Button>
-                              <Button onClick={handleCancel} variant="outline" size="sm">
-                                <X className="h-4 w-4 mr-2" />
-                                Cancel
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                        <Badge variant="secondary">Student ID: {userData.studentId}</Badge>
-                        <Badge variant="secondary">GPA: {userData.gpa}</Badge>
-                        <Badge variant="secondary">Joined: {new Date(userData.joinDate).getFullYear()}</Badge>
-                      </div>
-                    </div>
+                <CardContent className="pt-6 flex flex-col md:flex-row items-center gap-6">
+                  <div className="relative">
+                    <Avatar className="h-32 w-32 ring-4 ring-green-400">
+                      <AvatarImage src={editedData.avatar || "/placeholder.svg"} alt={userData.name} />
+                      <AvatarFallback>{userData.name.split(" ").map((n: string) => n[0]).join("")}</AvatarFallback>
+                    </Avatar>
+                    {isEditing && (
+                      <>
+                        <input type="file" accept="image/*" onChange={handleAvatarChange} id="avatarUpload" className="hidden" />
+                        <label htmlFor="avatarUpload" className="absolute -bottom-2 -right-2 bg-gray-200 rounded-full p-2 cursor-pointer">
+                          <Camera className="h-4 w-4" />
+                        </label>
+                      </>
+                    )}
                   </div>
+
+                  <div className="flex-1">
+                    {isEditing ? (
+                      <>
+                        <Input value={editedData.name} onChange={(e) => handleInputChange("name", e.target.value)} />
+                        <Input value={editedData.major} onChange={(e) => handleInputChange("major", e.target.value)} className="mt-2" />
+                        <Input value={editedData.year} onChange={(e) => handleInputChange("year", e.target.value)} className="mt-2" />
+                        <Input value={editedData.studentId} onChange={(e) => handleInputChange("studentId", e.target.value)} className="mt-2" />
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="text-2xl font-bold">{userData.name}</h2>
+                        <p>{userData.major} • {userData.year}</p>
+                        <Badge variant="secondary">Student ID: {userData.studentId}</Badge>
+                      </>
+                    )}
+                  </div>
+
+                  {!isEditing ? (
+                    <Button onClick={() => setIsEditing(true)}><Edit3 className="h-4 w-4 mr-2" /> Edit</Button>
+                  ) : (
+                    <>
+                      <Button onClick={handleSave} className="mr-2"><Save className="h-4 w-4 mr-2" /> Save</Button>
+                      <Button variant="outline" onClick={handleCancel}><X className="h-4 w-4 mr-2" /> Cancel</Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Personal Information */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <User className="h-5 w-5" />
-                      <span>Personal Information</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      {isEditing ? (
-                        <Input
-                          id="name"
-                          value={editedData.name}
-                          onChange={(e) => handleInputChange("name", e.target.value)}
-                        />
-                      ) : (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{userData.name}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      {isEditing ? (
-                        <Input
-                          id="email"
-                          type="email"
-                          value={editedData.email}
-                          onChange={(e) => handleInputChange("email", e.target.value)}
-                        />
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Mail className="h-4 w-4 text-gray-500" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{userData.email}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
-                      {isEditing ? (
-                        <Input
-                          id="phone"
-                          value={editedData.phone}
-                          onChange={(e) => handleInputChange("phone", e.target.value)}
-                        />
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Phone className="h-4 w-4 text-gray-500" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{userData.phone}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="address">Address</Label>
-                      {isEditing ? (
-                        <Textarea
-                          id="address"
-                          value={editedData.address}
-                          onChange={(e) => handleInputChange("address", e.target.value)}
-                          rows={2}
-                        />
-                      ) : (
-                        <div className="flex items-start space-x-2">
-                          <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{userData.address}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="dob">Date of Birth</Label>
-                      {isEditing ? (
-                        <Input
-                          id="dob"
-                          type="date"
-                          value={editedData.dateOfBirth}
-                          onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
-                        />
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4 text-gray-500" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {new Date(userData.dateOfBirth).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Bio</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {isEditing ? (
-                      <Textarea
-                        value={editedData.bio}
-                        onChange={(e) => handleInputChange("bio", e.target.value)}
-                        rows={6}
-                        placeholder="Tell us about yourself..."
-                      />
-                    ) : (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{userData.bio}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+              {/* Personal Info */}
+              <Card>
+                <CardHeader><CardTitle><User className="h-5 w-5 inline mr-2" />Personal Information</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Full Name</Label>
+                    {isEditing ? <Input value={editedData.name} onChange={(e) => handleInputChange("name", e.target.value)} /> : <p>{userData.name}</p>}
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    {isEditing ? <Input value={editedData.email} onChange={(e) => handleInputChange("email", e.target.value)} /> :
+                      <div className="flex items-center space-x-2"><Mail className="h-4 w-4" /> <p>{userData.email}</p></div>}
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    {isEditing ? <Input value={editedData.phone} onChange={(e) => handleInputChange("phone", e.target.value)} /> :
+                      <div className="flex items-center space-x-2"><Phone className="h-4 w-4" /> <p>{userData.phone}</p></div>}
+                  </div>
+                  <div>
+                    <Label>Address</Label>
+                    {isEditing ? <Textarea value={editedData.address} onChange={(e) => handleInputChange("address", e.target.value)} /> :
+                      <div className="flex items-start space-x-2"><MapPin className="h-4 w-4 mt-1" /> <p>{userData.address}</p></div>}
+                  </div>
+                  <div>
+                    <Label>Date of Birth</Label>
+                    {isEditing ? <Input type="date" value={editedData.dateOfBirth} onChange={(e) => handleInputChange("dateOfBirth", e.target.value)} /> :
+                      <div className="flex items-center space-x-2"><Calendar className="h-4 w-4" /> <p>{new Date(userData.dateOfBirth).toLocaleDateString()}</p></div>}
+                  </div>
+                  <div>
+                    <Label>Bio</Label>
+                    {isEditing ? <Textarea value={editedData.bio} onChange={(e) => handleInputChange("bio", e.target.value)} /> : <p>{userData.bio}</p>}
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Achievements */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Award className="h-5 w-5" />
-                    <span>Achievements</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {userData.achievements.map((achievement, index) => (
-                      <div
-                        key={index}
-                        className="p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-blue-950 dark:to-blue-900 rounded-lg"
-                      >
-                        <h3 className="font-semibold text-green-800 dark:text-blue-200">{achievement.title}</h3>
-                        <p className="text-sm text-green-600 dark:text-blue-400">{achievement.date}</p>
-                        <p className="text-xs text-green-700 dark:text-blue-300 mt-1">{achievement.description}</p>
-                      </div>
-                    ))}
-                  </div>
+                <CardHeader><CardTitle><Award className="h-5 w-5 inline mr-2" />Achievements</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {editedData.achievements.map((a: any, i: number) => (
+                    <div
+                      key={i}
+                      className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg"
+                    >
+                      {isEditing ? (
+                        <>
+                          <Input value={a.title} onChange={(e) => handleAchievementChange(i, "title", e.target.value)} placeholder="Title" />
+                          <Input value={a.date} onChange={(e) => handleAchievementChange(i, "date", e.target.value)} placeholder="Date" className="mt-2" />
+                          <Textarea value={a.description} onChange={(e) => handleAchievementChange(i, "description", e.target.value)} placeholder="Description" className="mt-2" />
+                          <Button variant="destructive" size="sm" onClick={() => removeAchievement(i)} className="mt-2"><Trash2 className="h-4 w-4" /> Remove</Button>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="font-semibold text-blue-800 dark:text-blue-200">{a.title}</h3>
+                          <p className="text-sm text-blue-600 dark:text-blue-400">{a.date}</p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">{a.description}</p>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {isEditing && (
+                    <Button onClick={addAchievement} variant="outline" size="sm" className="h-fit"><Plus className="h-4 w-4" /> Add Achievement</Button>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
-
+            
             <TabsContent value="academic" className="space-y-6">
               {/* Academic Overview */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
