@@ -1,52 +1,45 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { TopNavbar } from "@/components/top-navbar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Cloud, Upload, Search, FolderOpen, FileText, ImageIcon, File } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Cloud, Upload, File } from "lucide-react"
 
-const folders = [
-  { name: "Mathematics", files: 23, size: "45.2 MB", color: "bg-blue-500" },
-  { name: "Physics", files: 18, size: "32.1 MB", color: "bg-green-500" },
-  { name: "Chemistry", files: 15, size: "28.7 MB", color: "bg-purple-500" },
-  { name: "History", files: 12, size: "19.3 MB", color: "bg-orange-500" },
-  { name: "English", files: 20, size: "41.8 MB", color: "bg-red-500" },
-  { name: "Semester 1", files: 45, size: "89.2 MB", color: "bg-indigo-500" },
-]
-
-const recentFiles = [
-  { name: "Calculus Notes.pdf", type: "pdf", size: "2.4 MB", date: "2024-01-15", folder: "Mathematics" },
-  { name: "Lab Report.docx", type: "doc", size: "1.8 MB", date: "2024-01-14", folder: "Physics" },
-  { name: "Periodic Table.png", type: "image", size: "856 KB", date: "2024-01-13", folder: "Chemistry" },
-  { name: "Essay Draft.docx", type: "doc", size: "1.2 MB", date: "2024-01-12", folder: "English" },
-  { name: "Timeline.pptx", type: "ppt", size: "5.1 MB", date: "2024-01-11", folder: "History" },
-]
-
-const getFileIcon = (type: string) => {
-  switch (type) {
-    case "pdf":
-      return <FileText className="h-8 w-8 text-red-600" />
-    case "image":
-      return <ImageIcon className="h-8 w-8 text-green-600" />
-    case "doc":
-    case "ppt":
-      return <File className="h-8 w-8 text-blue-600" />
-    default:
-      return <File className="h-8 w-8 text-gray-600" />
-  }
+type AzureFile = {
+  name: string
+  url: string
 }
 
 export default function CloudStoragePage() {
-  const [searchQuery, setSearchQuery] = useState("")
   const [dragActive, setDragActive] = useState(false)
+  const [files, setFiles] = useState<AzureFile[]>([])
+  const [uploading, setUploading] = useState<{ name: string; progress: number } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Fetch existing files from Azure
+  const fetchFiles = async () => {
+    try {
+      const res = await fetch("/api/files")
+      const data = await res.json()
+      // Make sure the response always matches AzureFile[]
+      const normalized: AzureFile[] = (data || []).map((f: any) => ({
+        name: f.name || f.fileName || "unknown",
+        url: f.url || f.fileUrl || "#",
+      }))
+      setFiles(normalized)
+    } catch (error) {
+      console.error("Error fetching files:", error)
+      setFiles([])
+    }
+  }
+
+  useEffect(() => {
+    fetchFiles()
+  }, [])
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -58,22 +51,60 @@ export default function CloudStoragePage() {
     }
   }
 
+  const uploadFile = async (file: File) => {
+    setUploading({ name: file.name, progress: 0 })
+
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open("POST", "/api/upload", true)
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100)
+        setUploading({ name: file.name, progress: percent })
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        setUploading({ name: file.name, progress: 100 })
+        setTimeout(() => setUploading(null), 800)
+        fetchFiles()
+      } else {
+        console.error("Upload failed:", xhr.responseText)
+        setUploading(null)
+      }
+    }
+
+    xhr.onerror = () => {
+      console.error("Upload failed (network error)")
+      setUploading(null)
+    }
+
+    xhr.send(formData)
+  }
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      // Handle file upload
-      console.log("Files dropped:", e.dataTransfer.files)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        uploadFile(e.dataTransfer.files[i])
+      }
     }
   }
 
-  const filteredFiles = recentFiles.filter(
-    (file) =>
-      file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      file.folder.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const handleBrowse = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      for (let i = 0; i < e.target.files.length; i++) {
+        uploadFile(e.target.files[i])
+      }
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -83,8 +114,10 @@ export default function CloudStoragePage() {
 
         <div className="flex-1 space-y-6 p-6">
           <div className="space-y-2">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Cloud Storage</h1>
-            <p className="text-sm md:text-xl text-gray-600 dark:text-gray-400">Store and organize your study materials</p>
+            <h1 className="text-2xl md:text-3xl font-bold">Cloud Storage</h1>
+            <p className="text-sm md:text-xl text-gray-600 dark:text-gray-400">
+              Upload & manage your study files from Azure
+            </p>
           </div>
 
           {/* Upload Section */}
@@ -94,7 +127,7 @@ export default function CloudStoragePage() {
                 <Upload className="h-5 w-5" />
                 <span className="text-xl md:text-2xl">Upload Files</span>
               </CardTitle>
-              <CardDescription>Drag and drop files or click to browse</CardDescription>
+              <CardDescription>Drag & drop or select files to upload</CardDescription>
             </CardHeader>
             <CardContent>
               <div
@@ -108,120 +141,71 @@ export default function CloudStoragePage() {
               >
                 <Cloud className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">Drop files here</h3>
-                <p className="text-sm md:text-lgtext-gray-500 mb-4">or click to browse from your device</p>
-                <Button>
+                <p className="text-sm text-gray-500 mb-4">or click below to browse</p>
+                {/* Hidden input with ref */}
+                <Input
+                  type="file"
+                  multiple
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleBrowse}
+                />
+                <Button onClick={() => fileInputRef.current?.click()}>
                   <Upload className="h-4 w-4 mr-2" />
                   Choose Files
                 </Button>
-                <p className="text-xs text-gray-400 mt-2">Supports PDF, DOC, PPT, images up to 10MB</p>
               </div>
+
+              {/* Progress Bar */}
+              {uploading && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-1">{uploading.name}</p>
+                  <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                    <div
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-200"
+                      style={{ width: `${uploading.progress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs mt-1 text-gray-500">{uploading.progress}%</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="folders" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="folders">Folders</TabsTrigger>
-              <TabsTrigger value="files">All Files</TabsTrigger>
-              <TabsTrigger value="recent">Recent</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="folders" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {folders.map((folder, index) => (
-                  <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-12 h-12 ${folder.color} rounded-lg flex items-center justify-center`}>
-                          <FolderOpen className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-medium">{folder.name}</h3>
-                          <p className="text-sm text-gray-500">
-                            {folder.files} files • {folder.size}
-                          </p>
-                        </div>
+          {/* Files List */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Files in Azure</CardTitle>
+              <CardDescription>All uploaded files</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {files.length === 0 ? (
+                <p className="text-gray-500">No files uploaded yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {files.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <File className="h-6 w-6 text-blue-600" />
+                        <p className="font-medium">{file.name}</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="files" className="space-y-6">
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Search files..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full"
-                  />
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  ))}
                 </div>
-                <Button variant="outline">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <Card>
-                <CardContent className="p-0">
-                  <div className="space-y-1">
-                    {filteredFiles.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0"
-                      >
-                        <div className="flex items-center space-x-4">
-                          {getFileIcon(file.type)}
-                          <div>
-                            <p className="font-medium">{file.name}</p>
-                            <p className="text-sm text-gray-500">
-                              {file.date} • {file.size}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="secondary">{file.folder}</Badge>
-                          <Button variant="ghost" size="sm">
-                            Download
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="recent" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recently Uploaded</CardTitle>
-                  <CardDescription>Files uploaded in the last 7 days</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {recentFiles.slice(0, 5).map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          {getFileIcon(file.type)}
-                          <div>
-                            <p className="font-medium text-sm">{file.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {file.date} • {file.size}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant="secondary">{file.folder}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </SidebarInset>
     </SidebarProvider>
